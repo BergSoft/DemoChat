@@ -24,7 +24,6 @@ td {
     position: absolute;
     bottom: 10px;
     left: 10px;
-    /*height: 90%;*/
 }
 
 #input {
@@ -33,12 +32,9 @@ td {
 
 #inbox .message {
     padding-top: 0.25em;
+    width: 500px;
 }
 
-#nav {
-    float: right;
-    z-index: 99;
-}
 small
 {
     color: lightgray;

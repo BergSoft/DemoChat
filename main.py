@@ -21,7 +21,6 @@ class Application(tornado.web.Application):
         self.db = defaultdict(partial(deque, maxlen=25))
         handlers = [
                 (r'/', MainHandler),
-                (r'/send', AddHandler),
                 (r'/socket', ChatSocketHandler)
         ]
         settings = dict(
@@ -40,10 +39,8 @@ class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.render('index.html')
 
-
-class AddHandler(tornado.web.RequestHandler):
     def post(self):
-        self.write("Your browser doesn't support JavaScript or WebSockets.");
+        self.write("Your browser doesn't support JavaScript or WebSockets.")
 
 
 class ChatSocketHandler(tornado.websocket.WebSocketHandler):
@@ -98,7 +95,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             self.channel_send_online()
 
     def on_msg(self, parsed):
-        body = unicode(parsed.get('body', '')).strip()[:1024]
+        body = unicode(parsed.get('body', '')).strip()[:8192]
         if len(body) < 1:
             return
         msg = {
