@@ -80,7 +80,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         self.channel_send(msg)
 
     def on_connect(self, parsed):
-        self.nickname = unicode(parsed.get('nickname', '')).strip()[:16]
+        self.nickname = parsed.get('nickname', '').strip()[:16]
         self.nickname = self.nickname or u'Anonymous'
         self.channel = parsed['channel']
         self.channel_waiters.add(self)
@@ -95,7 +95,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             self.channel_send_online()
 
     def on_msg(self, parsed):
-        body = unicode(parsed.get('body', '')).strip()[:8192]
+        body = parsed.get('body', '').strip()[:8192]
         if len(body) < 1:
             return
         msg = {
@@ -111,8 +111,8 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         self.channel_send(msg)
 
     def on_message(self, message):
-        logging.info('Got message %r', message)
         parsed = tornado.escape.json_decode(message)
+        logging.info('Got message %r', parsed)
         type = parsed.get('type')
         if not type in ['connected', 'message']:
             return
