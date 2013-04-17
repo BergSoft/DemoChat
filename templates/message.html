@@ -1,5 +1,4 @@
-{% import tornado.escape %}
-{% import time %}
+{% import tornado.escape %}{% import time %}
 <div class="message">
 <small>{{ time.strftime('%H:%M:%S - %d.%m.%Y', time.localtime(message['time'])) }}</small>
 {{ tornado.escape.linkify(message['body']) }}

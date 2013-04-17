@@ -11,11 +11,14 @@ import functools
 
 from tornado.options import define, options
 
-define('port', default=80, help='run on the given port', type=int)
+define('port', default=8000, help='run on the given port', type=int)
 
 class Application(tornado.web.Application):
-    def __init__(self):
-        self.db = asyncmongo.Client(pool_id='mydb', host='127.0.0.1', port=27017, dbname='test')
+    def __init__(self, **kwargs):
+        self.db = asyncmongo.Client(pool_id='mydb',
+                                    host='127.0.0.1',
+                                    port=27017,
+                                    dbname='test')
         handlers = [
                 (r'/', MainHandler),
                 (r'/count', CountHandler),
@@ -27,15 +30,20 @@ class Application(tornado.web.Application):
             template_path=os.path.join(os.path.dirname(__file__), 'templates'),
             static_path=os.path.join(os.path.dirname(__file__), 'static'),
             xsrf_cookies=True,
-            autoescape=None
-            #debug=True
+            autoescape=None,
+            debug=False,
         )
+        settings.update(kwargs)
         tornado.web.Application.__init__(self, handlers, **settings)
+
 
 class MainHandler(tornado.web.RequestHandler):
     @tornado.web.asynchronous
     def get(self):
-        self.application.db.messages.find({}, limit=50, sort=[('time', -1)], callback=self.on_response)
+        self.application.db.messages.find({},
+                                          limit=50,
+                                          sort=[('time', -1)],
+                                          callback=self.on_response)
 
     def on_response(self, response, error):
         if error:
@@ -47,12 +55,13 @@ class MainHandler(tornado.web.RequestHandler):
 class CountHandler(tornado.web.RequestHandler):
     def get(self):
         self.write(str(len(ChatSocketHandler.waiters)))
-            
+
 
 class AddHandler(tornado.web.RequestHandler):
     def post(self):
         logging.info('Post message')
         self.write('Your browser doesn\'t support JavaScript or WebSockets or Flash.');
+
 
 class ChatSocketHandler(tornado.websocket.WebSocketHandler):
     waiters = set()
@@ -103,11 +112,13 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             callback = functools.partial(ChatSocketHandler.send_updates, chat=chat)
             self.application.db.messages.insert(chat, callback=callback)
 
+
 def main():
     tornado.options.parse_command_line()
-    app = Application()
+    app = Application(debug=False)
     app.listen(options.port)
     tornado.ioloop.IOLoop.instance().start()
+
 
 if __name__ == '__main__':
     main()

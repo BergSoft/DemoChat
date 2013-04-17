@@ -1,17 +1,14 @@
-WEB_SOCKET_SWF_LOCATION = "/static/WebSocketMain.swf";
-WEB_SOCKET_DEBUG = false;
-
 $(document).ready(function() {
     if (!window.console) window.console = {};
     if (!window.console.log) window.console.log = function() {};
 
     $('#post').attr('disabled', 'disabled');
     
-    $("#messageform").live("submit", function() {
+    $("#messageform").on("submit", function() {
         newMessage($(this));
         return false;
     });
-    $("#messageform").live("keypress", function(e) {
+    $("#messageform").on("keypress", function(e) {
         if (e.keyCode == 13) {
             newMessage($(this));
             return false;
@@ -62,7 +59,7 @@ var updater = {
     showMessage: function(message) {
         var existing = $("#m" + message.id);
         if (existing.length > 0) return;
-        var node = $(message.html);
+        var node = $(message.html.trim());
         node.hide();
         $("#inbox").append(node);
         node.slideDown();
