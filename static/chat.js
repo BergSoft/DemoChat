@@ -1,3 +1,5 @@
+var channel = 'main';
+
 $(function() {
     if (!window.console) window.console = {};
     if (!window.console.log) window.console.log = function() {};
@@ -16,8 +18,6 @@ $(function() {
     });
     $("#message").select();
     updater.start();
-    setInterval(checkCount, 30*1000);
-    checkCount();
 });
 
 function newMessage(form) {
@@ -46,11 +46,19 @@ var updater = {
         updater.socket = new WebSocket('ws://'+document.location.host+'/socket');
 
         updater.socket.onmessage = function(event) {
-            updater.showMessage(JSON.parse(event.data));
+            var data = JSON.parse(event.data);
+            if (data.type == 'online')
+                $('#count').text(data.count)
+            else if (data.type == 'message')
+                updater.showMessage(data);
         }
 
         updater.socket.onopen = function(event) {
             $('#post').removeAttr('disabled');
+            updater.socket.send(JSON.stringify({
+                'type': 'connected',
+                'channel': channel,
+            }));
         }
 
         updater.socket.onclose = function () {
@@ -68,7 +76,3 @@ var updater = {
         node.slideDown();
     }
 };
-
-function checkCount() {
-    $('#count').load('/count');
-}

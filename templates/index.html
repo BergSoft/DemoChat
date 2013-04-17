@@ -14,10 +14,13 @@
       <form action="/send" method="post" id="messageform">
         <table>
           <tr>
-          <td><input name="body" id="message" style="width:500px" maxlength="1024"/></td>
+          <td>
+            <input name="body" id="message" style="width:500px" maxlength="1024"/>
+          </td>
           <td style="padding-left:5px">
             <input type="submit" id="post" value="{{ _('Post') }}"/>
             <input type="hidden" name="next" value="{{ request.path }}"/>
+            <input type="hidden" name="type" value="message"/>
             {{ xsrf_form_html() }}
           </td>
           <tr>

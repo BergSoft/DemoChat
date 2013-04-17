@@ -19,7 +19,6 @@ class Application(tornado.web.Application):
         self.db = collections.deque(maxlen=25)
         handlers = [
                 (r'/', MainHandler),
-                (r'/count', CountHandler),
                 (r'/send', AddHandler),
                 (r'/socket', ChatSocketHandler)
         ]
@@ -40,11 +39,6 @@ class MainHandler(tornado.web.RequestHandler):
         self.render('index.html', messages=self.application.db)
 
 
-class CountHandler(tornado.web.RequestHandler):
-    def get(self):
-        self.write(str(len(ChatSocketHandler.waiters)))
-
-
 class AddHandler(tornado.web.RequestHandler):
     def post(self):
         logging.info('Post message')
@@ -52,38 +46,63 @@ class AddHandler(tornado.web.RequestHandler):
 
 
 class ChatSocketHandler(tornado.websocket.WebSocketHandler):
-    waiters = set()
-    ban_ips = set()
+    waiters = collections.defaultdict(set)
 
-    def open(self):
-        ChatSocketHandler.waiters.add(self)
-        logging.info('Add waiter')
+    def send_message(self, msg):
+        logging.info('Sending message to %d waiters',
+                     len(ChatSocketHandler.waiters[self.channel]))
+        for waiter in ChatSocketHandler.waiters[self.channel]:
+            try:
+                waiter.write_message(msg)
+            except:
+                logging.error('Error sending message', exc_info=True)
 
-    def on_close(self):
-        ChatSocketHandler.waiters.remove(self)
-        logging.info('Remove waiter')
+    def send_online(self):
+        msg = {
+            'type': 'online',
+            'count': len(ChatSocketHandler.waiters[self.channel]),
+        }
+        self.send_message(msg)
 
     def on_message(self, message):
         logging.info('Got message %r', message)
         parsed = tornado.escape.json_decode(message)
+        type = parsed.get('type')
+        if not type in ['connected', 'message']:
+            return
+        if type == 'connected':
+            self.on_connect(parsed)
+        elif type == 'message':
+            if getattr(self, 'channel', None) is not None:
+                self.on_msg(parsed)
+
+    def on_connect(self, parsed):
+        self.channel = parsed['channel']
+        ChatSocketHandler.waiters[self.channel].add(self)
+        logging.info('Add waiter to %s' % self.channel)
+        self.send_online()
+
+    def on_close(self):
+        if getattr(self, 'channel', None) is not None:
+            ChatSocketHandler.waiters[self.channel].remove(self)
+            logging.info('Remove waiter from %s' % self.channel)
+            self.send_online()
+
+    def on_msg(self, parsed):
         text = unicode(parsed['body']).strip()
         if len(text) < 1:
             return
-        chat = {
+        msg = {
             'id': str(uuid4()),
             'body': text[:1024],
             'time': time.time(),
+            'type': 'message',
         }
         if self.request.remote_ip == '127.0.0.1':
-            chat['author'] = 'Admin'
-        chat['html'] = self.render_string('message.html', message=chat)
-        self.application.db.append(chat)
-        logging.info('Sending message to %d waiters', len(ChatSocketHandler.waiters))
-        for waiter in ChatSocketHandler.waiters:
-            try:
-                waiter.write_message(chat)
-            except:
-                logging.error('Error sending message', exc_info=True)
+            msg['author'] = 'Admin'
+        msg['html'] = self.render_string('message.html', message=msg)
+        self.application.db.append(msg)
+        self.send_message(msg)
 
 
 def main():
