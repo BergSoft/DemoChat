@@ -1,3 +1,5 @@
+var nickname = "Anonymous";
+
 $(function() {
     if (!window.console) window.console = {};
     if (!window.console.log) window.console.log = function() {};
@@ -15,6 +17,7 @@ $(function() {
         }
     });
     $("#message").select();
+    nickname = prompt("Enter your nickname: ", nickname);
     updater.start();
 });
 
@@ -58,6 +61,7 @@ var updater = {
             $('#post').removeAttr('disabled');
             updater.socket.send(JSON.stringify({
                 'type': 'connected',
+                'nickname': nickname,
                 'channel': document.location.host,
             }));
         }
