@@ -1,47 +1,39 @@
+var channel = document.location.host;
 var nickname = "Anonymous";
 
 $(function() {
     if (!window.console) window.console = {};
     if (!window.console.log) window.console.log = function() {};
 
+    nickname = prompt("Enter your nickname: ", nickname);
+
     $('#post').attr('disabled', 'disabled');
-    
     $("#messageform").on("submit", function() {
-        newMessage($(this));
+        sendMessage();
         return false;
     });
     $("#messageform").on("keypress", function(e) {
         if (e.keyCode == 13) {
-            newMessage($(this));
+            sendMessage();
             return false;
         }
     });
     $("#message").select();
-    nickname = prompt("Enter your nickname: ", nickname);
-    updater.start();
+    setTimeout(updater.start, 0);
 });
 
-function newMessage(form) {
-    $("#message").val($("#message").val().trim());
-    if ($("#message").val() != '') {
-        var message = form.formToDict();
-        $("#message").val('').select();
-        updater.socket.send(JSON.stringify(message));
-    }
+function sendMessage() {
+    var message = $("#message").val();
+    $("#message").val('').select();
+    updater.sendMessage(message);
 }
-
-jQuery.fn.formToDict = function() {
-    var fields = this.serializeArray();
-    var json = {}
-    for (var i = 0; i < fields.length; i++) {
-        json[fields[i].name] = fields[i].value;
-    }
-    if (json.next) delete json.next;
-    return json;
-};
 
 var updater = {
     socket: null,
+
+    send: function(data) {
+        updater.socket.send(JSON.stringify(data));
+    },
 
     start: function() {
         updater.socket = new WebSocket('ws://'+document.location.host+'/socket');
@@ -59,22 +51,32 @@ var updater = {
 
         updater.socket.onopen = function(event) {
             $('#post').removeAttr('disabled');
-            updater.socket.send(JSON.stringify({
-                'type': 'connected',
+            updater.send({
+                'channel': channel,
                 'nickname': nickname,
-                'channel': document.location.host,
-            }));
+                'type': 'connected',
+            });
         }
 
         updater.socket.onclose = function () {
-            if (confirm('Socket disconnected.\nReload this page?'))
-                document.location.reload();
+            if (confirm('Socket disconnected.\nReconnect?'))
+                setTimeout(updater.start, 0);
+        }
+    },
+
+    sendMessage: function(message) {
+        message = message.trim();
+        if (message) {
+            var data = {
+                type: 'message',
+                body: message
+            };
+            updater.send(data);
         }
     },
 
     showMessage: function(message) {
-        var existing = $("#m" + message.id);
-        if (existing.length > 0) return;
+        if ($("#m" + message.id).length > 0) return;
         var node = $(message.html.trim());
         node.hide();
         $("#inbox").append(node);

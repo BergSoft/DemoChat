@@ -23,11 +23,12 @@ class Application(tornado.web.Application):
                 (r'/', MainHandler),
                 (r'/socket', ChatSocketHandler)
         ]
+        root = os.path.dirname(__file__)
         settings = dict(
             cookie_secret='nIgZ4V53+K6plun2hq3NMFlJe30dtXtrpvSslYr0t50=',
-            template_path=os.path.join(os.path.dirname(__file__), 'templates'),
-            static_path=os.path.join(os.path.dirname(__file__), 'static'),
-            xsrf_cookies=True,
+            template_path=os.path.join(root, 'templates'),
+            static_path=os.path.join(root, 'static'),
+            xsrf_cookies=False,
             autoescape=None,
             debug=False,
         )
