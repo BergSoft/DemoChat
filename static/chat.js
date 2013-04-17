@@ -25,14 +25,7 @@ $(function() {
 function proccessCommand(command) {
     var arguments = command.split(' ');
     var command = arguments.shift();
-    switch (command) {
-        case 'nick':
-            nickname = arguments.join(" ");
-            updater.setNickname(nickname);
-            break
-        default:
-            break
-    }
+    updater.sendCommand(command, arguments);
 }
 
 function proccessMessage() {
@@ -86,21 +79,19 @@ var updater = {
         if (message) {
             var data = {
                 type: 'message',
-                body: message
+                body: message,
             };
             updater.send(data);
         }
     },
 
-    setNickname: function(nickname) {
-        nickname = nickname.trim();
-        if (nickname) {
-            var data = {
-                type: 'nickname',
-                nickname: nickname
-            };
-            updater.send(data);
-        }
+    sendCommand: function(command, arguments) {
+        var data = {
+            type: 'command',
+            command: command,
+            arguments: arguments,
+        };
+        updater.send(data);
     },
 
     showMessage: function(message) {

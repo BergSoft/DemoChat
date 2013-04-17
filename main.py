@@ -111,19 +111,24 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         self.channel_messages.append(msg)
         self.channel_send(msg)
 
+    def on_command(self, parsed):
+        if parsed.get('command') == 'nick':
+            nick = u' '.join(parsed.get('arguments', [])).strip()
+            self.nickname = nick or self.nickname
+
     def on_message(self, message):
         parsed = tornado.escape.json_decode(message)
         logging.info('Got message %r', parsed)
+        proccess = dict(
+            connected=lambda: ((parsed.get('channel') is not None) and
+                                self.on_connect(parsed)),
+            command=lambda: ((parsed.get('command') is not None) and
+                              self.on_command(parsed)),
+            message=lambda: ((getattr(self, 'channel', None) is not None) and
+                              self.on_msg(parsed)),
+        )
         type = parsed.get('type')
-        if not type in ['connected', 'message', 'nickname']:
-            return
-        if type == 'connected' and parsed.get('channel') is not None:
-            self.on_connect(parsed)
-        elif type == 'message':
-            if getattr(self, 'channel', None) is not None:
-                self.on_msg(parsed)
-        elif type == 'nickname':
-            self.nickname = parsed.get('nickname', self.nickname)
+        type in proccess and proccess[type]()
 
 
 def main():
