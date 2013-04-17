@@ -115,13 +115,15 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         parsed = tornado.escape.json_decode(message)
         logging.info('Got message %r', parsed)
         type = parsed.get('type')
-        if not type in ['connected', 'message']:
+        if not type in ['connected', 'message', 'nickname']:
             return
         if type == 'connected' and parsed.get('channel') is not None:
             self.on_connect(parsed)
         elif type == 'message':
             if getattr(self, 'channel', None) is not None:
                 self.on_msg(parsed)
+        elif type == 'nickname':
+            self.nickname = parsed.get('nickname', self.nickname)
 
 
 def main():

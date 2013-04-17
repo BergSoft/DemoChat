@@ -9,12 +9,12 @@ $(function() {
 
     $('#post').attr('disabled', 'disabled');
     $("#messageform").on("submit", function() {
-        sendMessage();
+        proccessMessage();
         return false;
     });
     $("#messageform").on("keypress", function(e) {
         if (e.keyCode == 13) {
-            sendMessage();
+            proccessMessage();
             return false;
         }
     });
@@ -22,10 +22,27 @@ $(function() {
     setTimeout(updater.start, 0);
 });
 
-function sendMessage() {
+function proccessCommand(command) {
+    var arguments = command.split(' ');
+    var command = arguments.shift();
+    switch (command) {
+        case 'nick':
+            nickname = arguments.join(" ");
+            updater.setNickname(nickname);
+            break
+        default:
+            break
+    }
+}
+
+function proccessMessage() {
     var message = $("#message").val();
+    if (message.charAt(0) == '/')
+        proccessCommand(message.substr(1, message.lenght))
+    else {
+        updater.sendMessage(message)
+    }
     $("#message").val('').select();
-    updater.sendMessage(message);
 }
 
 var updater = {
@@ -70,6 +87,17 @@ var updater = {
             var data = {
                 type: 'message',
                 body: message
+            };
+            updater.send(data);
+        }
+    },
+
+    setNickname: function(nickname) {
+        nickname = nickname.trim();
+        if (nickname) {
+            var data = {
+                type: 'nickname',
+                nickname: nickname
             };
             updater.send(data);
         }
