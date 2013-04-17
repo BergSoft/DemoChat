@@ -1,4 +1,4 @@
-$(document).ready(function() {
+$(function() {
     if (!window.console) window.console = {};
     if (!window.console.log) window.console.log = function() {};
 
@@ -16,14 +16,17 @@ $(document).ready(function() {
     });
     $("#message").select();
     updater.start();
-    setInterval(checkCount, 10000);
+    setInterval(checkCount, 30*1000);
     checkCount();
 });
 
 function newMessage(form) {
-    var message = form.formToDict();
-    updater.socket.send(JSON.stringify(message));
-    form.find("input[type=text]").val("").select();
+    $("#message").val($("#message").val().trim());
+    if ($("#message").val() != '') {
+        var message = form.formToDict();
+        $("#message").val('').select();
+        updater.socket.send(JSON.stringify(message));
+    }
 }
 
 jQuery.fn.formToDict = function() {
@@ -40,16 +43,16 @@ var updater = {
     socket: null,
 
     start: function() {
-        updater.socket = new WebSocket('ws://'+document.location.host+'/chatsocket');
-        
+        updater.socket = new WebSocket('ws://'+document.location.host+'/socket');
+
         updater.socket.onmessage = function(event) {
             updater.showMessage(JSON.parse(event.data));
         }
-        
+
         updater.socket.onopen = function(event) {
             $('#post').removeAttr('disabled');
         }
-        
+
         updater.socket.onclose = function () {
             if (confirm('Socket disconnected.\nReload this page?'))
                 document.location.reload();

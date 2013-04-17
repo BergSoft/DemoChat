@@ -1,3 +1,4 @@
+import collections
 import logging
 import tornado.escape
 import tornado.ioloop
@@ -5,28 +6,25 @@ import tornado.options
 import tornado.web
 import tornado.websocket
 import os.path
-import asyncmongo
 import time
-import functools
 
 from tornado.options import define, options
+from uuid import uuid4
 
-define('port', default=8000, help='run on the given port', type=int)
+define('port', default=8888, help='run on the given port', type=int)
+define('address', default='127.0.0.1', help='run on the given address', type=str)
 
 class Application(tornado.web.Application):
     def __init__(self, **kwargs):
-        self.db = asyncmongo.Client(pool_id='mydb',
-                                    host='127.0.0.1',
-                                    port=27017,
-                                    dbname='test')
+        self.db = collections.deque(maxlen=25)
         handlers = [
                 (r'/', MainHandler),
                 (r'/count', CountHandler),
-                (r'/add_message', AddHandler),
-                (r'/chatsocket', ChatSocketHandler)
+                (r'/send', AddHandler),
+                (r'/socket', ChatSocketHandler)
         ]
         settings = dict(
-            cookie_secret='43oETzKXQAGaYdk6fd8fG1kJFuYh7EQnp2XdTP1o/Vo=',
+            cookie_secret='nIgZ4V53+K6plun2hq3NMFlJe30dtXtrpvSslYr0t50=',
             template_path=os.path.join(os.path.dirname(__file__), 'templates'),
             static_path=os.path.join(os.path.dirname(__file__), 'static'),
             xsrf_cookies=True,
@@ -38,18 +36,8 @@ class Application(tornado.web.Application):
 
 
 class MainHandler(tornado.web.RequestHandler):
-    @tornado.web.asynchronous
     def get(self):
-        self.application.db.messages.find({},
-                                          limit=50,
-                                          sort=[('time', -1)],
-                                          callback=self.on_response)
-
-    def on_response(self, response, error):
-        if error:
-            self.application.db.messages.remove({}, safe=False)
-            raise tornado.web.HTTPError(500)
-        self.render('index.html', messages=response[::-1])
+        self.render('index.html', messages=self.application.db)
 
 
 class CountHandler(tornado.web.RequestHandler):
@@ -60,7 +48,7 @@ class CountHandler(tornado.web.RequestHandler):
 class AddHandler(tornado.web.RequestHandler):
     def post(self):
         logging.info('Post message')
-        self.write('Your browser doesn\'t support JavaScript or WebSockets or Flash.');
+        self.write('Your browser doesn\'t support JavaScript or WebSockets.');
 
 
 class ChatSocketHandler(tornado.websocket.WebSocketHandler):
@@ -68,7 +56,6 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
     ban_ips = set()
 
     def open(self):
-        self.messages_count = 0
         ChatSocketHandler.waiters.add(self)
         logging.info('Add waiter')
 
@@ -76,49 +63,37 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         ChatSocketHandler.waiters.remove(self)
         logging.info('Remove waiter')
 
-    @classmethod
-    def send_updates(cls, result, error, chat):
-        if error:
-            raise tornado.web.HTTPError(500)
-        logging.info('Sending message to %d waiters', len(cls.waiters))
-        for waiter in cls.waiters:
+    def on_message(self, message):
+        logging.info('Got message %r', message)
+        parsed = tornado.escape.json_decode(message)
+        text = unicode(parsed['body']).strip()
+        if len(text) < 1:
+            return
+        chat = {
+            'id': str(uuid4()),
+            'body': text[:1024],
+            'time': time.time(),
+        }
+        if self.request.remote_ip == '127.0.0.1':
+            chat['author'] = 'Admin'
+        chat['html'] = self.render_string('message.html', message=chat)
+        self.application.db.append(chat)
+        logging.info('Sending message to %d waiters', len(ChatSocketHandler.waiters))
+        for waiter in ChatSocketHandler.waiters:
             try:
                 waiter.write_message(chat)
             except:
                 logging.error('Error sending message', exc_info=True)
 
-    def on_message(self, message):
-        for ip in ChatSocketHandler.ban_ips:
-            if ip == self.request.remote_ip:
-                self.close()
-                return
-        if self.messages_count > 20:
-            ChatSocketHandler.ban_ips.add(self.request.remote_ip)
-            self.close()
-            return
-        logging.info('Got message %r', message)
-        parsed = tornado.escape.json_decode(message)
-        text = unicode(parsed['body']).strip()
-        if len(text) > 0:
-            self.messages_count += 1
-            chat = {
-                'body': text[:80],
-                'time': time.time()
-            }
-            if self.request.remote_ip == '46.146.131.105':
-                chat['html'] = self.render_string('message_admin.html', message=chat)
-            else:
-                chat['html'] = self.render_string('message.html', message=chat)
-            callback = functools.partial(ChatSocketHandler.send_updates, chat=chat)
-            self.application.db.messages.insert(chat, callback=callback)
-
 
 def main():
     tornado.options.parse_command_line()
     app = Application(debug=False)
-    app.listen(options.port)
-    tornado.ioloop.IOLoop.instance().start()
-
+    app.listen(options.port, options.address)
+    try:
+        tornado.ioloop.IOLoop.instance().start()
+    except KeyboardInterrupt:
+        pass
 
 if __name__ == '__main__':
     main()
