@@ -1,7 +1,7 @@
 {% import tornado.escape %}{% import time %}
 <div id="m{{ message['id'] }}" class="message">
 <small>{{ time.strftime('[%H:%M:%S]', time.localtime(message['time'])) }} {{ message['author'] }}: </small>
-{% if message['author'] == 'Admin' %}
+{% if message['is_admin'] %}
 <font color="purple"><b>{{ tornado.escape.linkify(message['body']) }}</b></font>
 {% else %}
 {{ tornado.escape.linkify(message['body']) }}

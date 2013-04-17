@@ -8,7 +8,6 @@
 <body>
   <div id="body">
     <div id="inbox">
-{% for message in messages %}{{ message['html'] }}{% end %}
     </div>
     <div id="input">
       <form action="/send" method="post" id="messageform">

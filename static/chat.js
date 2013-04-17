@@ -1,5 +1,3 @@
-var channel = 'main';
-
 $(function() {
     if (!window.console) window.console = {};
     if (!window.console.log) window.console.log = function() {};
@@ -49,6 +47,9 @@ var updater = {
             var data = JSON.parse(event.data);
             if (data.type == 'online')
                 $('#count').text(data.count)
+            else if (data.type == 'last')
+                for (var i = 0; i < data.last.length; i++)
+                    updater.showMessage(data.last[i])
             else if (data.type == 'message')
                 updater.showMessage(data);
         }
@@ -57,7 +58,7 @@ var updater = {
             $('#post').removeAttr('disabled');
             updater.socket.send(JSON.stringify({
                 'type': 'connected',
-                'channel': channel,
+                'channel': document.location.host,
             }));
         }
 

@@ -1,4 +1,3 @@
-import collections
 import logging
 import tornado.escape
 import tornado.ioloop
@@ -10,13 +9,16 @@ import time
 
 from tornado.options import define, options
 from uuid import uuid4
+from collections import defaultdict, deque
+from functools import partial
 
+define('debug', default=False, help='enable debug', type=bool)
 define('port', default=8888, help='run on the given port', type=int)
 define('address', default='127.0.0.1', help='run on the given address', type=str)
 
 class Application(tornado.web.Application):
     def __init__(self, **kwargs):
-        self.db = collections.deque(maxlen=25)
+        self.db = defaultdict(partial(deque, maxlen=25))
         handlers = [
                 (r'/', MainHandler),
                 (r'/send', AddHandler),
@@ -36,33 +38,80 @@ class Application(tornado.web.Application):
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
-        self.render('index.html', messages=self.application.db)
+        self.render('index.html')
 
 
 class AddHandler(tornado.web.RequestHandler):
     def post(self):
-        logging.info('Post message')
-        self.write('Your browser doesn\'t support JavaScript or WebSockets.');
+        self.write("Your browser doesn't support JavaScript or WebSockets.");
 
 
 class ChatSocketHandler(tornado.websocket.WebSocketHandler):
-    waiters = collections.defaultdict(set)
+    waiters = defaultdict(set)
 
-    def send_message(self, msg):
-        logging.info('Sending message to %d waiters',
-                     len(ChatSocketHandler.waiters[self.channel]))
-        for waiter in ChatSocketHandler.waiters[self.channel]:
-            try:
-                waiter.write_message(msg)
-            except:
-                logging.error('Error sending message', exc_info=True)
+    @property
+    def channel_waiters(self):
+        return ChatSocketHandler.waiters[self.channel]
 
-    def send_online(self):
+    @property
+    def channel_messages(self):
+        return self.application.db[self.channel]
+
+    def send(self, msg):
+        try:
+            self.write_message(msg)
+        except:
+            logging.error('Error sending message', exc_info=True)
+
+    def send_last(self):
+        msg = {
+            'type': 'last',
+            'last': list(self.channel_messages),
+        }
+        self.send(msg)
+
+    def channel_send(self, msg):
+        logging.info('Sending message to %d waiters', len(self.channel_waiters))
+        for waiter in self.channel_waiters:
+            waiter.send(msg)
+
+    def channel_send_online(self):
         msg = {
             'type': 'online',
-            'count': len(ChatSocketHandler.waiters[self.channel]),
+            'count': len(self.channel_waiters),
         }
-        self.send_message(msg)
+        self.channel_send(msg)
+
+    def on_connect(self, parsed):
+        self.nickname = unicode(parsed.get('nickname', '')).strip()[:16]
+        self.nickname = self.nickname or u'Anonymous'
+        self.channel = parsed['channel']
+        self.channel_waiters.add(self)
+        logging.info('Add waiter to %s' % self.channel)
+        self.channel_send_online()
+        self.send_last()
+
+    def on_close(self):
+        if getattr(self, 'channel', None) is not None:
+            self.channel_waiters.remove(self)
+            logging.info('Remove waiter from %s' % self.channel)
+            self.channel_send_online()
+
+    def on_msg(self, parsed):
+        body = unicode(parsed.get('body', '')).strip()[:1024]
+        if len(body) < 1:
+            return
+        msg = {
+            'id': str(uuid4()),
+            'author': self.nickname,
+            'body': body,
+            'time': time.time(),
+            'type': 'message',
+            'is_admin': self.request.remote_ip == '127.0.0.1',
+        }
+        msg['html'] = self.render_string('message.html', message=msg)
+        self.channel_messages.append(msg)
+        self.channel_send(msg)
 
     def on_message(self, message):
         logging.info('Got message %r', message)
@@ -70,44 +119,16 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         type = parsed.get('type')
         if not type in ['connected', 'message']:
             return
-        if type == 'connected':
+        if type == 'connected' and parsed.get('channel') is not None:
             self.on_connect(parsed)
         elif type == 'message':
             if getattr(self, 'channel', None) is not None:
                 self.on_msg(parsed)
 
-    def on_connect(self, parsed):
-        self.channel = parsed['channel']
-        ChatSocketHandler.waiters[self.channel].add(self)
-        logging.info('Add waiter to %s' % self.channel)
-        self.send_online()
-
-    def on_close(self):
-        if getattr(self, 'channel', None) is not None:
-            ChatSocketHandler.waiters[self.channel].remove(self)
-            logging.info('Remove waiter from %s' % self.channel)
-            self.send_online()
-
-    def on_msg(self, parsed):
-        text = unicode(parsed['body']).strip()
-        if len(text) < 1:
-            return
-        msg = {
-            'id': str(uuid4()),
-            'body': text[:1024],
-            'time': time.time(),
-            'type': 'message',
-        }
-        if self.request.remote_ip == '127.0.0.1':
-            msg['author'] = 'Admin'
-        msg['html'] = self.render_string('message.html', message=msg)
-        self.application.db.append(msg)
-        self.send_message(msg)
-
 
 def main():
     tornado.options.parse_command_line()
-    app = Application(debug=False)
+    app = Application(debug=options.debug)
     app.listen(options.port, options.address)
     try:
         tornado.ioloop.IOLoop.instance().start()
