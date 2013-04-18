@@ -4,6 +4,15 @@ var nickname = "Anonymous";
 var blured = false;
 var unread_messages = 0;
 
+String.prototype.format = function() {
+  var formatted = this;
+  for (var i = 0; i < arguments.length; i++) {
+    var regexp = new RegExp('\\{'+i+'\\}', 'gi');
+    formatted = formatted.replace(regexp, arguments[i]);
+  }
+  return formatted;
+}
+
 $(function() {
     if (!window.console) window.console = {};
     if (!window.console.log) window.console.log = function() {};
@@ -85,11 +94,12 @@ var updater = {
                 'nickname': nickname,
                 'type': 'connected',
             });
+            updater.showMessage(updater.makeMessage('Joined to {0} as {1}'.format(channel, nickname)));
         }
 
         updater.socket.onclose = function () {
-            if (confirm('Socket disconnected.\nReconnect?'))
-                setTimeout(updater.start, 0);
+            updater.showMessage(updater.makeMessage('Socket disconnected. Reconnect in 5 seconds.'));
+            setTimeout(updater.start, 5000);
         }
     },
 
@@ -111,6 +121,14 @@ var updater = {
             arguments: arguments,
         };
         updater.send(data);
+    },
+
+    makeMessage: function(string) {
+        var template = '<div class="message"><small>* {0}</small></div>';
+        var message = {
+            html: template.format(string),
+        };
+        return message;
     },
 
     showMessage: function(message) {
