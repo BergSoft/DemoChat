@@ -69,7 +69,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         self.send(msg)
 
     def channel_send(self, msg):
-        logging.info('Sending message to %d waiters', len(self.channel_waiters))
+        logging.info('Sending to %d waiters', len(self.channel_waiters))
         for waiter in self.channel_waiters:
             waiter.send(msg)
 
@@ -90,7 +90,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         self.channel_send(msg)
 
     def on_connect(self, parsed):
-        self.nickname = parsed.get('nickname', '').strip()[:16]
+        self.nickname = (parsed.get('nickname') or '').strip()[:16]
         self.nickname = self.nickname or u'Anonymous'
         self.channel = parsed['channel']
         self.channel_waiters.add(self)
@@ -125,12 +125,17 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         if parsed.get('command') == 'nick':
             nick = u' '.join(parsed.get('arguments', [])).strip()
             old, self.nickname = self.nickname, nick or self.nickname
-            message = '%s changed nickname to %s' % (old, self.nickname)
-            self.channel_send_service(message)
+            message = u'%s changed nickname to %s' % (old, self.nickname)
+        elif parsed.get('command') == 'me':
+            message = u' '.join(parsed.get('arguments', [])).strip()
+            message = u'%s %s' % (self.nickname, message)
+        else:
+            return
+        self.channel_send_service(message)
 
     def on_message(self, message):
         parsed = tornado.escape.json_decode(message)
-        logging.info('Got message %r', parsed)
+        logging.info('Got %r', parsed)
         proccess = dict(
             connected=lambda: ((parsed.get('channel') is not None) and
                                 self.on_connect(parsed)),
