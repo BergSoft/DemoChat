@@ -132,7 +132,7 @@ var updater = {
     },
 
     makeMessage: function(string) {
-        var template = '<div class="message"><small>* {0}</small></div>';
+        var template = '<div class="message"><div class="alert-info">* {0}</div></div>';
         var message = {
             html: template.format(string),
         };
