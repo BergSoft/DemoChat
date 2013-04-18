@@ -73,10 +73,19 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         for waiter in self.channel_waiters:
             waiter.send(msg)
 
-    def channel_send_online(self):
+    def channel_send_service(self, message):
+        msg = {
+            'type': 'service',
+            'msg': message,
+        }
+        self.channel_send(msg)
+
+    def channel_send_online(self, status):
         msg = {
             'type': 'online',
             'count': len(self.channel_waiters),
+            'status': status,
+            'user': self.nickname,
         }
         self.channel_send(msg)
 
@@ -85,15 +94,16 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         self.nickname = self.nickname or u'Anonymous'
         self.channel = parsed['channel']
         self.channel_waiters.add(self)
-        logging.info('Add waiter to %s' % self.channel)
-        self.channel_send_online()
+        logging.info('%s joined to %s' % (self.nickname, self.channel))
         self.send_last()
+        self.channel_send_online('joined')
+
 
     def on_close(self):
         if getattr(self, 'channel', None) is not None:
             self.channel_waiters.remove(self)
-            logging.info('Remove waiter from %s' % self.channel)
-            self.channel_send_online()
+            logging.info('%s left %s' % (self.nickname, self.channel))
+            self.channel_send_online('left')
 
     def on_msg(self, parsed):
         body = parsed.get('body', '').strip()[:8192]
@@ -114,7 +124,9 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
     def on_command(self, parsed):
         if parsed.get('command') == 'nick':
             nick = u' '.join(parsed.get('arguments', [])).strip()
-            self.nickname = nick or self.nickname
+            old, self.nickname = self.nickname, nick or self.nickname
+            message = '%s changed nickname to %s' % (old, self.nickname)
+            self.channel_send_service(message)
 
     def on_message(self, message):
         parsed = tornado.escape.json_decode(message)

@@ -78,13 +78,22 @@ var updater = {
 
         updater.socket.onmessage = function(event) {
             var data = JSON.parse(event.data);
-            if (data.type == 'online')
-                $('#count').text(data.count)
-            else if (data.type == 'last')
-                for (var i = 0; i < data.last.length; i++)
-                    updater.showMessage(data.last[i])
-            else if (data.type == 'message')
-                updater.showMessage(data);
+            switch (data.type) {
+                case 'online':
+                    $('#count').text(data.count);
+                    updater.showMessage(updater.makeMessage(data.user + ' ' + data.status));
+                    break;
+                case 'service':
+                    updater.showMessage(updater.makeMessage(data.msg));
+                    break;
+                case 'last':
+                    for (var i = 0; i < data.last.length; i++)
+                        updater.showMessage(data.last[i])
+                    break;
+                case 'message':
+                    updater.showMessage(data);
+                    break;
+            }
         }
 
         updater.socket.onopen = function(event) {
@@ -94,7 +103,6 @@ var updater = {
                 'nickname': nickname,
                 'type': 'connected',
             });
-            updater.showMessage(updater.makeMessage('Joined to {0} as {1}'.format(channel, nickname)));
         }
 
         updater.socket.onclose = function () {
@@ -137,6 +145,6 @@ var updater = {
         node.hide();
         $("#inbox").append(node);
         node.slideDown();
-        onMessage();
+        if (message.id) onMessage();
     }
 };
