@@ -1,5 +1,8 @@
 var channel = document.location.host;
+var title = 'Chat';
 var nickname = "Anonymous";
+var blured = false;
+var unread_messages = 0;
 
 $(function() {
     if (!window.console) window.console = {};
@@ -19,8 +22,24 @@ $(function() {
         }
     });
     $("#message").select();
+    $(window).blur(function() {
+        blured = true;
+    });
+    $(window).focus(function() {
+        blured = false;
+        unread_messages = 0;
+        document.title = title;
+        $("#message").select();
+    });
     setTimeout(updater.start, 0);
 });
+
+function onMessage() {
+    if (blured) {
+        unread_messages += 1;
+        document.title = '(' + unread_messages + ') ' + title;
+    }
+}
 
 function proccessCommand(command) {
     var arguments = command.split(' ');
@@ -100,5 +119,6 @@ var updater = {
         node.hide();
         $("#inbox").append(node);
         node.slideDown();
+        onMessage();
     }
 };
