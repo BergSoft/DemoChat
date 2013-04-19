@@ -7,6 +7,7 @@ import tornado.websocket
 import os.path
 import time
 
+from tornado.iostream import StreamClosedError
 from tornado.options import define, options
 from uuid import uuid4
 from collections import defaultdict, deque
@@ -58,6 +59,8 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
     def send(self, msg):
         try:
             self.write_message(msg)
+        except StreamClosedError:
+            pass
         except:
             logging.error('Error sending message', exc_info=True)
 
