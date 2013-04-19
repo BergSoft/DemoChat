@@ -69,9 +69,11 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         self.send(msg)
 
     def channel_send(self, msg):
-        logging.info('Sending to %d waiters', len(self.channel_waiters))
-        for waiter in self.channel_waiters:
-            waiter.send(msg)
+        count = len(self.channel_waiters)
+        if count > 0:
+            logging.info('Sending to %d waiters', count)
+            for waiter in self.channel_waiters:
+                waiter.send(msg)
 
     def channel_send_service(self, message):
         msg = {
@@ -97,7 +99,6 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         logging.info('%s joined to %s' % (self.nickname, self.channel))
         self.send_last()
         self.channel_send_online('joined')
-
 
     def on_close(self):
         if getattr(self, 'channel', None) is not None:
