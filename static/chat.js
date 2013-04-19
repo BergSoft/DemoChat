@@ -93,6 +93,8 @@ var updater = {
                 case 'message':
                     updater.showMessage(data);
                     break;
+                default:
+                    break;
             }
         }
 

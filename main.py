@@ -1,12 +1,12 @@
 import logging
 import tornado.escape
-import tornado.ioloop
 import tornado.options
 import tornado.web
 import tornado.websocket
 import os.path
 import time
 
+from tornado.ioloop import IOLoop, PeriodicCallback
 from tornado.iostream import StreamClosedError
 from tornado.options import define, options
 from uuid import uuid4
@@ -64,6 +64,9 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         except:
             logging.error('Error sending message', exc_info=True)
 
+    def send_ping(self):
+        self.send({'type': 'ping'})
+
     def send_last(self):
         msg = {
             'type': 'last',
@@ -99,12 +102,15 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         self.nickname = self.nickname or u'Anonymous'
         self.channel = parsed['channel']
         self.channel_waiters.add(self)
+        self.scheduled_ping = PeriodicCallback(self.send_ping, 1000 * 60 * 30)
+        self.scheduled_ping.start()
         logging.info('%s joined to %s' % (self.nickname, self.channel))
         self.send_last()
         self.channel_send_online('joined')
 
     def on_close(self):
         if getattr(self, 'channel', None) is not None:
+            self.scheduled_ping.stop()
             self.channel_waiters.remove(self)
             logging.info('%s left %s' % (self.nickname, self.channel))
             self.channel_send_online('left')
@@ -157,7 +163,7 @@ def main():
     app = Application(debug=options.debug)
     app.listen(options.port, options.address)
     try:
-        tornado.ioloop.IOLoop.instance().start()
+        IOLoop.instance().start()
     except KeyboardInterrupt:
         pass
 
