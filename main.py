@@ -65,7 +65,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             logging.error('Error sending message', exc_info=True)
 
     def send_ping(self):
-        self.send({'type': 'ping'})
+        self.ping('')
 
     def send_last(self):
         msg = {
