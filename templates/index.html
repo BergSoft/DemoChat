@@ -11,12 +11,13 @@
 <body>
 	<div class="container">
 		<aside>
-			[<span id="count">?</span> people in chat]
+			<span id="count">?</span> people in chat
 		</aside>
-		<div id="inbox"></div>
+		<section id="inbox"></section>
 		<form method="post" id="messageform">
-			<input id="message" maxlength="8192"/>
+			<input id="message" maxlength="8192" placeholder="Сообщение"/>
 			<input type="submit" id="post" value="{{ _('Post') }}"/>
+			<input type="hidden" name="type" value="message"/>
 		</form>
 	</div>
 </body>
